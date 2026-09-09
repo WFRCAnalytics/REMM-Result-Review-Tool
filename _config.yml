@@ -1,0 +1,144 @@
+title: REMM Forecast Review Map
+
+review_pages:
+  # Paths are relative to this ResultReview repo root when running
+  # review_combined.ipynb from the root directory.
+  # Change this folder if the REMM input files move.
+  input_files_dir: ../REMM-v3.0/TDM/_TDMv9.0.0_REMM/1_Inputs
+
+  # Output path is relative to this ResultReview repo root.
+  docs_data_dir: docs/data
+
+  # The following input folders/files are relative to input_files_dir.
+  se_data_dir: 2_SEData/REMM
+  taz_dir: 1_TAZ
+  taz_shapefile: 1_TAZ/TAZ.shp
+  districts_dir: 1_TAZ/Districts
+  county_shapefile: 1_TAZ/_Source/County/Counties_NAD83.shp
+  taz_geojson_file: taz_map_features.geojson
+  area_square_meters_per_square_mile: 2589988.110336
+  web_map_epsg: 4326
+
+  geography_fields:
+    - TAZID
+    - CO_TAZID
+    - CO_FIPS
+    - CO_NAME
+    - CITY_FIPS
+    - CITY_NAME
+    - DISTLRG
+    - DLRG_NAME
+    - DISTMED
+    - DMED_NAME
+    - DISTSML
+    - DSML_NAME
+
+  metrics:
+    - TOTHH
+    - HHPOP
+    - HHSIZE
+    - TOTEMP
+    - RETEMP
+    - INDEMP
+    - OTHEMP
+    - ALLEMP
+    - RETL
+    - FOOD
+    - MANU
+    - WSLE
+    - OFFI
+    - GVED
+    - HLTH
+    - OTHR
+    - FM_AGRI
+    - FM_MING
+    - FM_CONS
+    - HBJ
+
+  preview_metric_aliases:
+    households: TOTHH
+    population: HHPOP
+    jobs_total: TOTEMP
+    jobs_retail_group: RETEMP
+    jobs_industrial_group: INDEMP
+    jobs_other_group: OTHEMP
+    jobs_all: ALLEMP
+    jobs_retail: RETL
+    jobs_food: FOOD
+    jobs_manufacturing: MANU
+    jobs_wholesale: WSLE
+    jobs_office: OFFI
+    jobs_government_education: GVED
+    jobs_health: HLTH
+    jobs_other: OTHR
+    jobs_agriculture: FM_AGRI
+    jobs_mining: FM_MING
+    jobs_construction: FM_CONS
+    jobs_home_based: HBJ
+
+  geographies:
+    taz:
+      file: taz_features.geojson
+      keys:
+        - taz_id
+      name: geography_name
+      source: 1_TAZ/TAZ.shp
+    city:
+      file: city_features.geojson
+      keys:
+        - CITY_NAME
+      name: CITY_NAME
+      source: 1_TAZ/Districts/City_Name.shp
+    county:
+      file: county_features.geojson
+      keys:
+        - CO_FIPS
+      name: CO_NAME
+      source: 1_TAZ/_Source/County/Counties_NAD83.shp
+    large_district:
+      file: large_district_features.geojson
+      keys:
+        - DISTLRG
+      name: DLRG_NAME
+      source: 1_TAZ/Districts/Dist_Large.shp
+    medium_district:
+      file: medium_district_features.geojson
+      keys:
+        - DISTMED
+      name: DMED_NAME
+      source: 1_TAZ/Districts/Dist_Medium.shp
+    small_district:
+      file: small_district_features.geojson
+      keys:
+        - DISTSML
+      name: DSML_NAME
+      source: 1_TAZ/Districts/Dist_Small.shp
+
+  preview_geographies:
+    city:
+      keys:
+        - CITY_FIPS
+        - CITY_NAME
+      name: CITY_NAME
+    large_district:
+      keys:
+        - DISTLRG
+      name: DLRG_NAME
+    medium_district:
+      keys:
+        - DISTMED
+      name: DMED_NAME
+    small_district:
+      keys:
+        - DISTSML
+      name: DSML_NAME
+    taz:
+      keys:
+        - taz_id
+      name: geography_name
+
+  preview_files:
+    forecast_map_data: forecast_map_data.csv
+    change_map_data: change_map_data.csv
+    change_map_data_long: change_map_data_long.csv
+    clicked_geography_trends_long: clicked_geography_trends_long.csv

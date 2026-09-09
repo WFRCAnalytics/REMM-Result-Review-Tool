@@ -1,0 +1,6 @@
+.venv/
+Archived/
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+clicked_geography_trends_long.csv

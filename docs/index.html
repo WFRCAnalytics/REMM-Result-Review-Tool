@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REMM Forecast Review Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; }
+    .app { display: grid; grid-template-columns: 370px minmax(0, 1fr); height: 100%; min-height: 640px; }
+    .sidebar { background: #f8f8f4; border-right: 1px solid #999; overflow: auto; padding: 8px 12px; box-sizing: border-box; font-size: 12px; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 14px; }
+    .tab { border: 0; padding: 8px 10px; background: #bbb; color: white; text-align: left; font-weight: 700; cursor: pointer; }
+    .tab.active { background: #83ea89; color: #184b1c; }
+    .row { display: flex; align-items: center; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+    label { font-weight: 700; }
+    select, button, input { font: inherit; }
+    select { height: 26px; border: 1px solid #c9c9c9; background: white; max-width: 245px; }
+    .radio-group label, .checks label { font-weight: 400; }
+    .stepper { width: 30px; height: 22px; border: 1px solid #999; background: white; cursor: pointer; }
+    .legend-wrap { border-top: 1px solid #c9c9c9; border-bottom: 1px solid #c9c9c9; padding: 10px 0; margin: 10px 0 12px; text-align: center; }
+    .legend-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .legend { height: 12px; display: grid; grid-template-columns: repeat(7, 1fr); margin: 0 40px 4px; }
+    .legend span { border-right: 1px solid white; }
+    .legend-labels { display: flex; justify-content: space-between; font-size: 10px; margin: 0 2px; }
+    .checks { display: grid; gap: 2px; margin: 8px 0; }
+    .transparency input { width: 170px; }
+    .section-title { font-weight: 700; font-size: 18px; margin-top: 16px; }
+    .table-wrap { overflow-x: auto; background: white; border: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    th, td { border: 1px solid #ddd; padding: 2px 3px; text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    tr.highlight td { background: #fff069; }
+    .chart-box { margin-top: 12px; height: 235px; background: linear-gradient(#f7f7f7, #e8e8e8); border: 1px solid #c7c7c7; position: relative; }
+    #trendChart { width: 100%; height: 100%; }
+    .series { margin-top: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; font-size: 11px; }
+    .series label { font-weight: 400; display: flex; align-items: center; gap: 4px; min-width: 0; }
+    .series input { margin: 0; }
+    .swatch { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 3px; }
+    #map { height: 100%; width: 100%; background: #333; }
+    .map-disclaimer { position: absolute; z-index: 650; top: 10px; left: 370px; right: 0; display: flex; justify-content: center; pointer-events: none; }
+    .map-disclaimer span { max-width: min(760px, calc(100% - 24px)); background: rgba(255,255,255,.94); border: 1px solid rgba(0,0,0,.24); padding: 8px 12px; box-shadow: 0 1px 5px rgba(0,0,0,.25); font-size: 13px; font-weight: 700; line-height: 1.35; text-align: center; box-sizing: border-box; }
+    .map-disclaimer a { color: #0b3f86; pointer-events: auto; }
+    .status { position: absolute; z-index: 500; left: 382px; bottom: 12px; width: 230px; background: rgba(0,0,0,.82); color: white; padding: 7px 8px; font-size: 11px; box-sizing: border-box; transition: opacity .2s ease; }
+    .status.hidden { opacity: 0; pointer-events: none; }
+    .status-text { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .status-bar { height: 5px; background: rgba(255,255,255,.22); overflow: hidden; }
+    .status-fill { display: block; height: 100%; width: 0; background: #83ea89; transition: width .15s ease; }
+    .leaflet-container { font: 12px Arial, Helvetica, sans-serif; }
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: 45vh 55vh; }
+      .sidebar { grid-row: 2; border-right: 0; border-top: 1px solid #999; }
+      #map { grid-row: 1; }
+      .map-disclaimer { left: 0; top: 8px; }
+      .map-disclaimer span { font-size: 12px; padding: 7px 10px; }
+      .status { left: 12px; bottom: 56%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="tabs">
+        <button class="tab active" id="forecastTab">Forecast</button>
+        <button class="tab" id="changeTab">Change</button>
+      </div>
+
+      <div class="row">
+        <label for="geoSelect">Map Geography:</label>
+        <select id="geoSelect">
+          <option value="taz">Transportation Analysis Zones</option>
+          <option value="small_district">Small Districts</option>
+          <option value="medium_district">Medium Districts</option>
+          <option value="large_district">Large Districts</option>
+          <option value="city">Cities</option>
+          <option value="county">Counties</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="metricSelect">Display:</label>
+        <select id="metricSelect"></select>
+        <span class="radio-group">
+          <label><input type="radio" name="valueMode" value="count" checked> Count</label>
+          <label><input type="radio" name="valueMode" value="density"> Density</label>
+        </span>
+      </div>
+
+      <div class="row forecast-controls" hidden>
+        <label for="yearSelect">Year:</label>
+        <select id="yearSelect"></select>
+        <label>Increment:</label>
+        <button class="stepper" id="yearBack">&lt;</button>
+        <select id="incrementSelect"><option>1</option><option selected>5</option><option>10</option></select>
+        <button class="stepper" id="yearForward">&gt;</button>
+      </div>
+
+      <div class="row change-controls" hidden>
+        <label for="fromYearSelect">From:</label>
+        <select id="fromYearSelect"></select>
+        <label for="toYearSelect">To:</label>
+        <select id="toYearSelect"></select>
+      </div>
+
+      <div class="legend-wrap">
+        <div class="legend-title" id="legendTitle">Number of TOTHH per TAZ</div>
+        <div class="legend" id="legend"></div>
+        <div class="legend-labels"><span id="legendMin">zero</span><span id="legendMax">&gt;800</span></div>
+      </div>
+
+      <div class="checks">
+        <label><input type="checkbox" id="basemapToggle" checked> Show Google Map Background</label>
+        <label><input type="checkbox" id="countyToggle"> Show County Boundaries</label>
+        <label><input type="checkbox" id="cityToggle"> Show City Boundaries</label>
+      </div>
+
+      <div class="row transparency">
+        <label for="opacityRange">Layer Transparency: <span id="opacityLabel">35%</span></label>
+        <input id="opacityRange" type="range" min="5" max="95" value="65">
+      </div>
+
+      <div class="row">
+        <div class="section-title" id="selectedTitle">Trends</div>
+      </div>
+
+      <div class="row"><strong id="modeLabel">Forecast</strong><span style="margin-left:auto">5-year points</span></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr id="trendHead"></tr></thead>
+          <tbody id="trendBody"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+      <div class="series" id="seriesList"></div>
+    </aside>
+    <main id="map"></main>
+  </div>
+  <div class="map-disclaimer" aria-live="polite">
+    <span>This tool supports model development and will be incorporated into the REMM module workflow. It was adapted from WFRC's <a href="https://wfrc.utah.gov/preliminary-27-55-household-job-forecast-map/" target="_blank" rel="noopener">Preliminary Draft Forecast Map (2027-2055 RTP)</a>. The data displayed are from a test run and do not represent final forecasts.</span>
+  </div>
+  <div class="status" id="status">
+    <div class="status-text"><span id="statusText">Loading</span><span id="statusPct">0%</span></div>
+    <div class="status-bar"><span class="status-fill" id="statusFill"></span></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+    const metrics = ["TOTHH","HHPOP","HHSIZE","TOTEMP","RETEMP","INDEMP","OTHEMP","ALLEMP","RETL","FOOD","MANU","WSLE","OFFI","GVED","HLTH","OTHR","FM_AGRI","FM_MING","FM_CONS","HBJ"];
+    const tableMetrics = metrics;
+    const geographyLabels = {
+      taz: "TAZ",
+      small_district: "Small District",
+      medium_district: "Medium District",
+      large_district: "Large District",
+      city: "City",
+      county: "County"
+    };
+    const layerFiles = {
+      taz: "data/taz_features.geojson",
+      city: "data/city_features.geojson",
+      county: "data/county_features.geojson",
+      large_district: "data/large_district_features.geojson",
+      medium_district: "data/medium_district_features.geojson",
+      small_district: "data/small_district_features.geojson"
+    };
+    const forecastFiles = {
+      taz: "data/forecast_taz.csv",
+      city: "data/forecast_city.csv",
+      county: "data/forecast_county.csv",
+      large_district: "data/forecast_large_district.csv",
+      medium_district: "data/forecast_medium_district.csv",
+      small_district: "data/forecast_small_district.csv"
+    };
+    const chartColors = ["#e4a300","#0a7d22","#7a62d9","#2a63df","#8c1e14","#c24ccf","#777","#111","#b25f00","#2f80ed","#875a37","#426b1f","#99582a","#437f97","#89023e","#d00000","#6a994e","#577590","#bc6c25","#00a99d"];
+    const zeroColor = "#b8b8b8";
+    const mapColors = [zeroColor,"#064b1f","#197337","#d9c95b","#e8913d","#c43b32","#7f0000"];
+    const state = {
+      mode: "forecast",
+      geography: "taz",
+      metric: "TOTHH",
+      valueMode: "count",
+      years: [],
+      trendYears: [],
+      year: null,
+      fromYear: null,
+      toYear: null,
+      transparency: 0.35,
+      activeLayer: null,
+      outlineLayers: {},
+      features: {},
+      areaSqMiles: new Map(),
+      data: new Map(),
+      rowsByGeo: new Map(),
+      loadedDataGeographies: new Set(),
+      breaks: [],
+      selectedKey: null,
+      selectedName: null,
+      chart: null,
+      visibleMetrics: new Set(metrics)
+    };
+
+    const map = L.map("map", { zoomControl: true }).setView([40.72, -111.89], 9);
+    const googleBaseLayer = L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      attribution: "Map data &copy; Google",
+      maxZoom: 20
+    }).addTo(map);
+
+    function splitCsvLine(line) {
+      const result = [];
+      let value = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"' && quoted && next === '"') { value += '"'; i++; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === "," && !quoted) { result.push(value); value = ""; }
+        else value += char;
+      }
+      result.push(value);
+      return result;
+    }
+    function parseCsv(text) {
+      const lines = text.trim().split(/\r?\n/);
+      const headers = splitCsvLine(lines.shift());
+      return lines.map(line => {
+        const values = splitCsvLine(line);
+        const row = {};
+        headers.forEach((header, i) => row[header] = values[i] ?? "");
+        return row;
+      });
+    }
+    function setStatus(message, percent = null) {
+      const status = document.getElementById("status");
+      if (!status) return;
+      status.classList.remove("hidden");
+      const pct = percent === null ? null : Math.max(0, Math.min(100, Math.round(percent)));
+      document.getElementById("statusText").textContent = message;
+      document.getElementById("statusPct").textContent = pct === null ? "" : `${pct}%`;
+      document.getElementById("statusFill").style.width = pct === null ? "0%" : `${pct}%`;
+    }
+    function hideStatus(delay = 900) {
+      window.setTimeout(() => document.getElementById("status")?.classList.add("hidden"), delay);
+    }
+    async function fetchTextWithProgress(url, label, startPercent, endPercent) {
+      setStatus(label, startPercent);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to load ${url}: ${response.status}`);
+      const total = Number(response.headers.get("content-length"));
+      if (!response.body || !Number.isFinite(total) || total <= 0) {
+        const text = await response.text();
+        setStatus(label, endPercent);
+        return text;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const chunks = [];
+      let loaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        loaded += value.byteLength;
+        chunks.push(decoder.decode(value, { stream: true }));
+        setStatus(label, startPercent + (loaded / total) * (endPercent - startPercent));
+      }
+      chunks.push(decoder.decode());
+      setStatus(label, endPercent);
+      return chunks.join("");
+    }
+    function numeric(row, key) {
+      const value = Number(row?.[key]);
+      return Number.isFinite(value) ? value : 0;
+    }
+    function geoKey(type, id, year) { return `${type}|${id}|${year}`; }
+    function areaKey(type, id) { return `${type}|${id}`; }
+    function featureId(feature) { return String(feature.properties.geography_id); }
+    function featureName(feature) { return feature.properties.geography_name || feature.properties.CITY_NAME || feature.properties.CO_NAME || featureId(feature); }
+    function rowValue(type, id, metric, year) { return numeric(state.data.get(geoKey(type, id, year)), metric); }
+    function isDensityMetric(metric) { return metric !== "HHSIZE"; }
+    function adjustedValue(type, id, metric, year) {
+      const value = rowValue(type, id, metric, year);
+      if (state.valueMode !== "density" || !isDensityMetric(metric)) return value;
+      const area = state.areaSqMiles.get(areaKey(type, id));
+      return area > 0 ? value / area : 0;
+    }
+    function dataValue(type, id, metric = state.metric) {
+      if (state.mode === "forecast") return adjustedValue(type, id, metric, state.year);
+      return adjustedValue(type, id, metric, state.toYear) - adjustedValue(type, id, metric, state.fromYear);
+    }
+    function formatValue(value, metric = state.metric) {
+      if (state.valueMode === "density" && isDensityMetric(metric)) {
+        return value.toLocaleString(undefined, { maximumFractionDigits: value >= 100 ? 0 : 1 });
+      }
+      return Math.round(value).toLocaleString();
+    }
+    function metricLabel(metric = state.metric) {
+      return state.valueMode === "density" && isDensityMetric(metric) ? `${metric} per sq mi` : metric;
+    }
+    function ringAreaSquareMeters(ring) {
+      if (!ring || ring.length < 3) return 0;
+      const radius = 6378137;
+      const toRadians = Math.PI / 180;
+      let total = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const current = ring[i];
+        const next = ring[(i + 1) % ring.length];
+        total += (next[0] - current[0]) * toRadians * (2 + Math.sin(current[1] * toRadians) + Math.sin(next[1] * toRadians));
+      }
+      return total * radius * radius / 2;
+    }
+    function polygonAreaSquareMiles(polygon) {
+      if (!polygon?.length) return 0;
+      const outer = Math.abs(ringAreaSquareMeters(polygon[0]));
+      const holes = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(ringAreaSquareMeters(ring)), 0);
+      return Math.max(outer - holes, 0) / 2589988.110336;
+    }
+    function featureAreaSquareMiles(feature) {
+      const storedArea = Number(feature.properties?.AREA_SQMI);
+      if (Number.isFinite(storedArea) && storedArea > 0) return storedArea;
+      const geometry = feature.geometry;
+      if (!geometry) return 0;
+      if (geometry.type === "Polygon") return polygonAreaSquareMiles(geometry.coordinates);
+      if (geometry.type === "MultiPolygon") {
+        return geometry.coordinates.reduce((sum, polygon) => sum + polygonAreaSquareMiles(polygon), 0);
+      }
+      return 0;
+    }
+    function indexFeatureAreas() {
+      Object.entries(state.features).forEach(([type, collection]) => {
+        (collection.features || []).forEach(feature => {
+          state.areaSqMiles.set(areaKey(type, featureId(feature)), featureAreaSquareMiles(feature));
+        });
+      });
+    }
+    function indexFeatureAreaCollection(type) {
+      (state.features[type]?.features || []).forEach(feature => {
+        state.areaSqMiles.set(areaKey(type, featureId(feature)), featureAreaSquareMiles(feature));
+      });
+    }
+    async function loadFeatureLayer(type, startPercent = 0, endPercent = 50) {
+      if (state.features[type]) return;
+      const label = `Loading ${geographyLabels[type] || type} shapes`;
+      state.features[type] = JSON.parse(await fetchTextWithProgress(layerFiles[type], label, startPercent, endPercent));
+      indexFeatureAreaCollection(type);
+    }
+    async function loadForecastRows(type, startPercent = 50, endPercent = 95) {
+      if (state.loadedDataGeographies.has(type)) return;
+      const label = `Loading ${geographyLabels[type] || type} data`;
+      const text = await fetchTextWithProgress(forecastFiles[type] || "data/forecast.csv", label, startPercent, endPercent);
+      parseCsv(text).forEach(row => {
+        if (row.geography_type !== type) return;
+        const key = `${row.geography_type}|${row.geography_id}`;
+        state.data.set(geoKey(row.geography_type, row.geography_id, row.year), row);
+        if (!state.rowsByGeo.has(key)) state.rowsByGeo.set(key, []);
+        state.rowsByGeo.get(key).push(row);
+      });
+      for (const [key, rows] of state.rowsByGeo.entries()) {
+        if (key.startsWith(`${type}|`)) rows.sort((a, b) => Number(a.year) - Number(b.year));
+      }
+      state.loadedDataGeographies.add(type);
+    }
+    async function ensureGeography(type) {
+      await loadFeatureLayer(type, 5, 60);
+      await loadForecastRows(type, 60, 96);
+    }
+    function quantiles(values, count) {
+      const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+      if (!sorted.length) return [];
+      return Array.from({ length: count - 1 }, (_, i) => sorted[Math.floor((sorted.length - 1) * (i + 1) / count)]);
+    }
+    function colorScale(value, breaks) {
+      if (value === 0) return zeroColor;
+      const colors = mapColors;
+      let idx = 0;
+      while (idx < breaks.length && value > breaks[idx]) idx++;
+      return colors[idx] || colors[colors.length - 1];
+    }
+    function layerValues() {
+      return (state.features[state.geography]?.features || []).map(feature => dataValue(state.geography, featureId(feature)));
+    }
+    function refreshLegend(values) {
+      const colors = mapColors;
+      const legend = document.getElementById("legend");
+      legend.innerHTML = "";
+      colors.forEach(color => {
+        const span = document.createElement("span");
+        span.style.background = color;
+        legend.appendChild(span);
+      });
+      const finite = values.filter(Number.isFinite);
+      if (!finite.length) return;
+      document.getElementById("legendMin").textContent = state.mode === "forecast" ? "zero" : formatValue(Math.min(...finite));
+      document.getElementById("legendMax").textContent = `>${formatValue(Math.max(...finite))}`;
+      document.getElementById("legendTitle").textContent = state.mode === "forecast"
+        ? `${metricLabel()} by ${geographyLabels[state.geography]} in ${state.year}`
+        : `Change in ${metricLabel()} by ${geographyLabels[state.geography]} from ${state.fromYear} to ${state.toYear}`;
+    }
+    function activeStyle(feature) {
+      const value = dataValue(state.geography, featureId(feature));
+      return {
+        color: "#333",
+        weight: state.selectedKey === `${state.geography}|${featureId(feature)}` ? 3 : 0.8,
+        opacity: 0.9,
+        fillColor: colorScale(value, state.breaks),
+        fillOpacity: 1 - state.transparency
+      };
+    }
+    function drawActiveLayer() {
+      if (state.activeLayer) map.removeLayer(state.activeLayer);
+      const features = state.features[state.geography];
+      if (!features) return;
+      const values = layerValues();
+      state.breaks = quantiles(values, 7);
+      state.activeLayer = L.geoJSON(features, {
+        style: activeStyle,
+        onEachFeature: (feature, layer) => {
+          layer.on("click", () => selectFeature(feature));
+          layer.bindTooltip(() => `${featureName(feature)}<br>${metricLabel()}: ${formatValue(dataValue(state.geography, featureId(feature)))}`);
+        }
+      }).addTo(map);
+      if (!state.selectedKey && features.features.length) selectFeature(features.features[0], false);
+      refreshMap();
+    }
+    function refreshMap() {
+      if (!state.activeLayer) return;
+      const values = layerValues();
+      state.breaks = quantiles(values, 7);
+      state.activeLayer.setStyle(activeStyle);
+      refreshLegend(values);
+    }
+    function selectFeature(feature, fit = false) {
+      const id = featureId(feature);
+      state.selectedKey = `${state.geography}|${id}`;
+      state.selectedName = featureName(feature);
+      document.getElementById("selectedTitle").textContent = `${state.selectedName} Trends`;
+      if (fit && feature.geometry) map.fitBounds(L.geoJSON(feature).getBounds(), { padding: [20, 20] });
+      refreshMap();
+      refreshTable();
+      refreshChart();
+    }
+    function trendRows() {
+      return (state.rowsByGeo.get(state.selectedKey) || []).filter(row => state.trendYears.includes(Number(row.year)));
+    }
+    function refreshTable() {
+      const head = document.getElementById("trendHead");
+      const body = document.getElementById("trendBody");
+      head.innerHTML = "";
+      body.innerHTML = "";
+      ["Year", ...tableMetrics.map(metricLabel)].forEach(label => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        head.appendChild(th);
+      });
+      trendRows().forEach(row => {
+        const tr = document.createElement("tr");
+        if (Number(row.year) === Number(state.year) || Number(row.year) === Number(state.toYear)) tr.className = "highlight";
+        const yearCell = document.createElement("td");
+        yearCell.textContent = row.year;
+        tr.appendChild(yearCell);
+        tableMetrics.forEach(metric => {
+          const td = document.createElement("td");
+          td.textContent = formatValue(adjustedValue(row.geography_type, row.geography_id, metric, row.year), metric);
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+    }
+    function refreshChart() {
+      const rows = trendRows();
+      const labels = rows.map(row => row.year);
+      const datasets = tableMetrics.map((metric, i) => ({
+        label: metricLabel(metric),
+        data: rows.map(row => adjustedValue(row.geography_type, row.geography_id, metric, row.year)),
+        borderColor: chartColors[i],
+        backgroundColor: chartColors[i],
+        hidden: !state.visibleMetrics.has(metric),
+        pointRadius: 2,
+        borderWidth: metric === state.metric ? 3 : 1.5,
+        tension: 0.15
+      }));
+      if (state.chart) state.chart.destroy();
+      state.chart = new Chart(document.getElementById("trendChart"), {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+        }
+      });
+      const series = document.getElementById("seriesList");
+      series.innerHTML = "";
+      tableMetrics.forEach((metric, i) => {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = state.visibleMetrics.has(metric);
+        input.addEventListener("change", event => {
+          if (event.target.checked) state.visibleMetrics.add(metric);
+          else state.visibleMetrics.delete(metric);
+          refreshChart();
+        });
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.style.background = chartColors[i];
+        const text = document.createElement("span");
+        text.textContent = metricLabel(metric);
+        label.append(input, swatch, text);
+        series.appendChild(label);
+      });
+    }
+    function setMode(mode) {
+      state.mode = mode;
+      document.getElementById("forecastTab").classList.toggle("active", mode === "forecast");
+      document.getElementById("changeTab").classList.toggle("active", mode === "change");
+      document.querySelector(".forecast-controls").hidden = true;
+      document.querySelector(".change-controls").hidden = mode !== "change";
+      document.getElementById("modeLabel").textContent = mode === "forecast" ? "Forecast" : "Change";
+      refreshMap();
+      refreshTable();
+      refreshChart();
+    }
+    function stepYear(direction) {
+      const increment = Number(document.getElementById("incrementSelect").value);
+      const target = state.year + direction * increment;
+      state.year = state.years.reduce((best, year) => Math.abs(year - target) < Math.abs(best - target) ? year : best, state.year);
+      document.getElementById("yearSelect").value = state.year;
+      refreshMap();
+      refreshTable();
+    }
+    async function refreshOverlay(name, checked) {
+      if (checked) await loadFeatureLayer(name);
+      if (!state.outlineLayers[name]) {
+        const styles = {
+          county: { color: "#111", weight: 2, fillOpacity: 0, opacity: 0.8 },
+          city: { color: "#666", weight: 1, fillOpacity: 0, opacity: 0.65 }
+        };
+        state.outlineLayers[name] = L.geoJSON(state.features[name], { style: styles[name], interactive: false });
+      }
+      const layer = state.outlineLayers[name];
+      if (checked) layer.addTo(map);
+      else map.removeLayer(layer);
+    }
+    function setupControls() {
+      const metricSelect = document.getElementById("metricSelect");
+      metrics.forEach(metric => {
+        const option = document.createElement("option");
+        option.value = metric;
+        option.textContent = metric;
+        metricSelect.appendChild(option);
+      });
+      ["yearSelect", "fromYearSelect", "toYearSelect"].forEach(id => {
+        const select = document.getElementById(id);
+        state.years.forEach(year => {
+          const option = document.createElement("option");
+          option.value = year;
+          option.textContent = year;
+          select.appendChild(option);
+        });
+      });
+      state.year = state.years[state.years.length - 1];
+      state.fromYear = state.years[0];
+      state.toYear = state.years[state.years.length - 1];
+      document.getElementById("yearSelect").value = state.year;
+      document.getElementById("fromYearSelect").value = state.fromYear;
+      document.getElementById("toYearSelect").value = state.toYear;
+      document.getElementById("forecastTab").addEventListener("click", () => setMode("forecast"));
+      document.getElementById("changeTab").addEventListener("click", () => setMode("change"));
+      document.getElementById("geoSelect").addEventListener("change", async event => {
+        state.geography = event.target.value;
+        state.selectedKey = null;
+        setStatus(`Loading ${geographyLabels[state.geography]}`, 0);
+        await ensureGeography(state.geography);
+        drawActiveLayer();
+        map.fitBounds(state.activeLayer.getBounds(), { padding: [10, 10] });
+        setStatus("Loaded", 100);
+        hideStatus();
+      });
+      metricSelect.addEventListener("change", event => {
+        state.metric = event.target.value;
+        refreshMap();
+        refreshTable();
+        refreshChart();
+      });
+      document.querySelectorAll("input[name='valueMode']").forEach(input => {
+        input.addEventListener("change", event => {
+          state.valueMode = event.target.value;
+          refreshMap();
+          refreshTable();
+          refreshChart();
+        });
+      });
+      document.getElementById("yearSelect").addEventListener("change", event => {
+        state.year = Number(event.target.value);
+        refreshMap();
+        refreshTable();
+      });
+      document.getElementById("fromYearSelect").addEventListener("change", event => {
+        state.fromYear = Number(event.target.value);
+        refreshMap();
+      });
+      document.getElementById("toYearSelect").addEventListener("change", event => {
+        state.toYear = Number(event.target.value);
+        refreshMap();
+      });
+      document.getElementById("yearBack").addEventListener("click", () => stepYear(-1));
+      document.getElementById("yearForward").addEventListener("click", () => stepYear(1));
+      document.getElementById("opacityRange").addEventListener("input", event => {
+        state.transparency = (100 - Number(event.target.value)) / 100;
+        document.getElementById("opacityLabel").textContent = `${Math.round(state.transparency * 100)}%`;
+        refreshMap();
+      });
+      document.getElementById("basemapToggle").addEventListener("change", event => {
+        if (event.target.checked) googleBaseLayer.addTo(map);
+        else map.removeLayer(googleBaseLayer);
+      });
+      document.getElementById("countyToggle").addEventListener("change", event => refreshOverlay("county", event.target.checked));
+      document.getElementById("cityToggle").addEventListener("change", event => refreshOverlay("city", event.target.checked));
+    }
+    async function init() {
+      setStatus("Loading metadata", 0);
+      const metadata = await fetch("data/metadata.json").then(response => response.json());
+      state.years = metadata.years.map(Number);
+      state.trendYears = (metadata.trend_years || state.years.filter(year => year === state.years[0] || year === state.years[state.years.length - 1] || year % 5 === 0)).map(Number);
+      setupControls();
+      await ensureGeography(state.geography);
+      drawActiveLayer();
+      map.fitBounds(state.activeLayer.getBounds(), { padding: [10, 10] });
+      setStatus("Loaded", 100);
+      hideStatus();
+    }
+    init().catch(error => {
+      console.error(error);
+      setStatus(`Error: ${error.message}`);
+    });
+  </script>
+</body>
+</html>
