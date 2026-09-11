@@ -1,5 +1,5 @@
 {
-  "source_directory": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\2_SEData\\REMM",
+  "source_directory": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\2_SEData\\v900_3runs",
   "taz_shapefile": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\1_TAZ\\TAZ.shp",
   "districts_directory": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\1_TAZ\\Districts",
   "county_shapefile": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\1_TAZ\\_Source\\County\\Counties_NAD83.shp",
@@ -77,6 +77,7 @@
     "INDEMP",
     "OTHEMP",
     "ALLEMP",
+    "HH + Job Intensity",
     "RETL",
     "FOOD",
     "MANU",

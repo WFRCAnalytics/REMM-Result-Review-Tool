@@ -1,5 +1,5 @@
 {
-  "source_directory": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\2_SEData\\REMM",
+  "source_directory": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\2_SEData\\v900_3runs",
   "taz_shapefile": "E:\\xtemp\\GitStuff\\REMM-v3.0\\TDM\\_TDMv9.0.0_REMM\\1_Inputs\\1_TAZ\\TAZ.shp",
   "years": [
     2023,
@@ -92,7 +92,6 @@
     "taz_map_features": "docs\\data\\taz_map_features.geojson",
     "forecast_map_data": "docs\\data\\forecast_map_data.csv",
     "change_map_data": "docs\\data\\change_map_data.csv",
-    "change_map_data_long": "docs\\data\\change_map_data_long.csv",
-    "clicked_geography_trends_long": "docs\\data\\clicked_geography_trends_long.csv"
+    "change_map_data_long": "docs\\data\\change_map_data_long.csv"
   }
 }

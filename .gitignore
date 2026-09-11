@@ -4,3 +4,6 @@ Archived/
 __pycache__/
 *.py[cod]
 clicked_geography_trends_long.csv
+*.log
+local-server.log
+local-server.err.log

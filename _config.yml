@@ -10,7 +10,7 @@ review_pages:
   docs_data_dir: docs/data
 
   # The following input folders/files are relative to input_files_dir.
-  se_data_dir: 2_SEData/REMM
+  se_data_dir: 2_SEData/v900_3runs
   taz_dir: 1_TAZ
   taz_shapefile: 1_TAZ/TAZ.shp
   districts_dir: 1_TAZ/Districts
@@ -42,6 +42,7 @@ review_pages:
     - INDEMP
     - OTHEMP
     - ALLEMP
+    - HH + Job Intensity
     - RETL
     - FOOD
     - MANU
@@ -141,4 +142,3 @@ review_pages:
     forecast_map_data: forecast_map_data.csv
     change_map_data: change_map_data.csv
     change_map_data_long: change_map_data_long.csv
-    clicked_geography_trends_long: clicked_geography_trends_long.csv

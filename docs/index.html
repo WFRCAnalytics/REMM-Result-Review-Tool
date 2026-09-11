@@ -6,23 +6,27 @@
   <title>REMM Forecast Review Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    html, body { height: 100%; margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; }
+    html, body { height: 100%; margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; overflow-x: hidden; }
     .app { display: grid; grid-template-columns: 370px minmax(0, 1fr); height: 100%; min-height: 640px; }
     .sidebar { background: #f8f8f4; border-right: 1px solid #999; overflow: auto; padding: 8px 12px; box-sizing: border-box; font-size: 12px; }
     .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 14px; }
     .tab { border: 0; padding: 8px 10px; background: #bbb; color: white; text-align: left; font-weight: 700; cursor: pointer; }
     .tab.active { background: #83ea89; color: #184b1c; }
     .row { display: flex; align-items: center; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+    .display-row { align-items: flex-start; }
     label { font-weight: 700; }
     select, button, input { font: inherit; }
     select { height: 26px; border: 1px solid #c9c9c9; background: white; max-width: 245px; }
+    .radio-group { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 auto; flex-wrap: wrap; min-width: 0; }
     .radio-group label, .checks label { font-weight: 400; }
+    .change-type { flex: 1 1 220px; margin-left: 0; }
     .stepper { width: 30px; height: 22px; border: 1px solid #999; background: white; cursor: pointer; }
     .legend-wrap { border-top: 1px solid #c9c9c9; border-bottom: 1px solid #c9c9c9; padding: 10px 0; margin: 10px 0 12px; text-align: center; }
     .legend-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-    .legend { height: 12px; display: grid; grid-template-columns: repeat(7, 1fr); margin: 0 40px 4px; }
-    .legend span { border-right: 1px solid white; }
-    .legend-labels { display: flex; justify-content: space-between; font-size: 10px; margin: 0 2px; }
+    .legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; margin: 0 2px; text-align: left; }
+    .legend-item { display: grid; grid-template-columns: 100%; gap: 3px; min-width: 0; }
+    .legend-swatch { height: 13px; border: 1px solid rgba(0,0,0,.2); box-sizing: border-box; }
+    .legend-label { font-size: 9px; line-height: 1.15; overflow-wrap: anywhere; }
     .checks { display: grid; gap: 2px; margin: 8px 0; }
     .transparency input { width: 170px; }
     .section-title { font-weight: 700; font-size: 18px; margin-top: 16px; }
@@ -31,7 +35,10 @@
     th, td { border: 1px solid #ddd; padding: 2px 3px; text-align: right; white-space: nowrap; }
     th:first-child, td:first-child { text-align: left; }
     tr.highlight td { background: #fff069; }
-    .chart-box { margin-top: 12px; height: 235px; background: linear-gradient(#f7f7f7, #e8e8e8); border: 1px solid #c7c7c7; position: relative; }
+    .chart-heading { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .expand-chart { margin-left: auto; border: 1px solid #999; background: white; padding: 4px 7px; cursor: pointer; font-weight: 700; }
+    .expand-chart:hover, .expand-chart:focus-visible { background: #eef7ee; }
+    .chart-box { margin-top: 6px; height: 235px; background: linear-gradient(#f7f7f7, #e8e8e8); border: 1px solid #c7c7c7; position: relative; }
     #trendChart { width: 100%; height: 100%; }
     .series { margin-top: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; font-size: 11px; }
     .series label { font-weight: 400; display: flex; align-items: center; gap: 4px; min-width: 0; }
@@ -46,6 +53,14 @@
     .status-text { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
     .status-bar { height: 5px; background: rgba(255,255,255,.22); overflow: hidden; }
     .status-fill { display: block; height: 100%; width: 0; background: #83ea89; transition: width .15s ease; }
+    .chart-window { position: fixed; z-index: 1200; display: flex; flex-direction: column; min-width: 360px; min-height: 260px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); background: #f8f8f4; border: 1px solid #777; box-shadow: 0 3px 14px rgba(0,0,0,.32); box-sizing: border-box; resize: both; overflow: hidden; }
+    .chart-window[hidden] { display: none; }
+    .chart-window-titlebar { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 6px 8px; background: #e1e1dc; border-bottom: 1px solid #aaa; cursor: move; user-select: none; box-sizing: border-box; }
+    .chart-window-title { font-weight: 700; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chart-window-close { margin-left: auto; width: 24px; height: 22px; border: 1px solid #777; background: white; cursor: pointer; font-weight: 700; line-height: 1; }
+    .chart-window-close:hover, .chart-window-close:focus-visible { background: #f4dddd; }
+    .chart-window-body { flex: 1 1 auto; min-height: 0; padding: 8px; box-sizing: border-box; }
+    #expandedTrendChart { width: 100%; height: 100%; }
     .leaflet-container { font: 12px Arial, Helvetica, sans-serif; }
     @media (max-width: 820px) {
       .app { grid-template-columns: 1fr; grid-template-rows: 45vh 55vh; }
@@ -65,7 +80,7 @@
         <button class="tab" id="changeTab">Change</button>
       </div>
 
-      <div class="row">
+      <div class="row display-row">
         <label for="geoSelect">Map Geography:</label>
         <select id="geoSelect">
           <option value="taz">Transportation Analysis Zones</option>
@@ -83,6 +98,11 @@
         <span class="radio-group">
           <label><input type="radio" name="valueMode" value="count" checked> Count</label>
           <label><input type="radio" name="valueMode" value="density"> Density</label>
+        </span>
+        <span class="radio-group change-type">
+          <label>Change:</label>
+          <label><input type="radio" name="changeMode" value="absolute" checked> Absolute Change</label>
+          <label><input type="radio" name="changeMode" value="percent"> Percent Change</label>
         </span>
       </div>
 
@@ -105,7 +125,6 @@
       <div class="legend-wrap">
         <div class="legend-title" id="legendTitle">Number of TOTHH per TAZ</div>
         <div class="legend" id="legend"></div>
-        <div class="legend-labels"><span id="legendMin">zero</span><span id="legendMax">&gt;800</span></div>
       </div>
 
       <div class="checks">
@@ -123,7 +142,7 @@
         <div class="section-title" id="selectedTitle">Trends</div>
       </div>
 
-      <div class="row"><strong id="modeLabel">Forecast</strong><span style="margin-left:auto">5-year points</span></div>
+      <div class="row"><strong id="modeLabel">Forecast</strong><span id="pointsLabel" style="margin-left:auto">5-year points</span></div>
 
       <div class="table-wrap">
         <table>
@@ -132,10 +151,21 @@
         </table>
       </div>
 
+      <div class="chart-heading">
+        <span></span>
+        <button class="expand-chart" id="expandChart" type="button" aria-label="Expand trend chart">Expand Chart</button>
+      </div>
       <div class="chart-box"><canvas id="trendChart"></canvas></div>
       <div class="series" id="seriesList"></div>
     </aside>
     <main id="map"></main>
+  </div>
+  <div class="chart-window" id="chartWindow" role="dialog" aria-label="Expanded trend chart" hidden>
+    <div class="chart-window-titlebar" id="chartWindowTitlebar">
+      <div class="chart-window-title" id="chartWindowTitle">Trend Chart</div>
+      <button class="chart-window-close" id="chartWindowClose" type="button" aria-label="Close expanded trend chart">X</button>
+    </div>
+    <div class="chart-window-body"><canvas id="expandedTrendChart"></canvas></div>
   </div>
   <div class="map-disclaimer" aria-live="polite">
     <span>This tool supports model development and will be incorporated into the REMM module workflow. It was adapted from WFRC's <a href="https://wfrc.utah.gov/preliminary-27-55-household-job-forecast-map/" target="_blank" rel="noopener">Preliminary Draft Forecast Map (2027-2055 RTP)</a>. The data displayed are from a test run and do not represent final forecasts.</span>
@@ -148,7 +178,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script>
-    const metrics = ["TOTHH","HHPOP","HHSIZE","TOTEMP","RETEMP","INDEMP","OTHEMP","ALLEMP","RETL","FOOD","MANU","WSLE","OFFI","GVED","HLTH","OTHR","FM_AGRI","FM_MING","FM_CONS","HBJ"];
+    const metrics = ["TOTHH","HHPOP","HHSIZE","TOTEMP","RETEMP","INDEMP","OTHEMP","ALLEMP","HH + Job Intensity","RETL","FOOD","MANU","WSLE","OFFI","GVED","HLTH","OTHR","FM_AGRI","FM_MING","FM_CONS","HBJ"];
     const tableMetrics = metrics;
     const geographyLabels = {
       taz: "TAZ",
@@ -174,14 +204,18 @@
       medium_district: "data/forecast_medium_district.csv",
       small_district: "data/forecast_small_district.csv"
     };
-    const chartColors = ["#e4a300","#0a7d22","#7a62d9","#2a63df","#8c1e14","#c24ccf","#777","#111","#b25f00","#2f80ed","#875a37","#426b1f","#99582a","#437f97","#89023e","#d00000","#6a994e","#577590","#bc6c25","#00a99d"];
-    const zeroColor = "#b8b8b8";
-    const mapColors = [zeroColor,"#064b1f","#197337","#d9c95b","#e8913d","#c43b32","#7f0000"];
+    const chartColors = ["#e4a300","#0a7d22","#7a62d9","#2a63df","#8c1e14","#c24ccf","#777","#111","#008c8c","#b25f00","#2f80ed","#875a37","#426b1f","#99582a","#437f97","#89023e","#d00000","#6a994e","#577590","#bc6c25","#00a99d"];
+    const zeroColor = "#f7f7f7";
+    const mapColors = ["#fffafa","#feecec","#fedada","#fcbfbf","#fb9f9f","#f77a7a","#ef5555","#df3636","#c51f1f","#a50f15","#7f0000","#4d0000"];
+    const negativeColors = ["#bae4b3","#74c476","#41ab5d","#238b45","#006d2c","#00441b"];
+    const positiveColors = ["#fee5d9","#fcbba1","#fc9272","#fb6a4a","#de2d26","#a50f15"];
+    const noDataColor = "#f1f1f1";
     const state = {
       mode: "forecast",
       geography: "taz",
       metric: "TOTHH",
       valueMode: "count",
+      changeMode: "absolute",
       years: [],
       trendYears: [],
       year: null,
@@ -199,6 +233,7 @@
       selectedKey: null,
       selectedName: null,
       chart: null,
+      expandedChart: null,
       visibleMetrics: new Set(metrics)
     };
 
@@ -278,7 +313,11 @@
     function areaKey(type, id) { return `${type}|${id}`; }
     function featureId(feature) { return String(feature.properties.geography_id); }
     function featureName(feature) { return feature.properties.geography_name || feature.properties.CITY_NAME || feature.properties.CO_NAME || featureId(feature); }
-    function rowValue(type, id, metric, year) { return numeric(state.data.get(geoKey(type, id, year)), metric); }
+    function rowValue(type, id, metric, year) {
+      const row = state.data.get(geoKey(type, id, year));
+      if (metric === "HH + Job Intensity") return (1.8 * numeric(row, "TOTHH")) + numeric(row, "ALLEMP");
+      return numeric(row, metric);
+    }
     function isDensityMetric(metric) { return metric !== "HHSIZE"; }
     function adjustedValue(type, id, metric, year) {
       const value = rowValue(type, id, metric, year);
@@ -286,17 +325,36 @@
       const area = state.areaSqMiles.get(areaKey(type, id));
       return area > 0 ? value / area : 0;
     }
+    function changeValue(type, id, metric = state.metric) {
+      const fromValue = adjustedValue(type, id, metric, state.fromYear);
+      const toValue = adjustedValue(type, id, metric, state.toYear);
+      const absoluteChange = toValue - fromValue;
+      if (state.changeMode === "percent") {
+        if (!Number.isFinite(fromValue) || fromValue === 0) return NaN;
+        return absoluteChange / fromValue * 100;
+      }
+      return absoluteChange;
+    }
     function dataValue(type, id, metric = state.metric) {
       if (state.mode === "forecast") return adjustedValue(type, id, metric, state.year);
-      return adjustedValue(type, id, metric, state.toYear) - adjustedValue(type, id, metric, state.fromYear);
+      return changeValue(type, id, metric);
     }
-    function formatValue(value, metric = state.metric) {
+    function formatValue(value, metric = state.metric, formatAsChange = state.mode === "change") {
+      if (!Number.isFinite(value)) return "N/A";
+      if (formatAsChange && state.changeMode === "percent") {
+        return `${value.toLocaleString(undefined, { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 1 })}%`;
+      }
       if (state.valueMode === "density" && isDensityMetric(metric)) {
-        return value.toLocaleString(undefined, { maximumFractionDigits: value >= 100 ? 0 : 1 });
+        return value.toLocaleString(undefined, { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 1 });
       }
       return Math.round(value).toLocaleString();
     }
     function metricLabel(metric = state.metric) {
+      const label = baseMetricLabel(metric);
+      if (state.mode !== "change") return label;
+      return state.changeMode === "percent" ? `${label} percent change` : `${label} change`;
+    }
+    function baseMetricLabel(metric = state.metric) {
       return state.valueMode === "density" && isDensityMetric(metric) ? `${metric} per sq mi` : metric;
     }
     function ringAreaSquareMeters(ring) {
@@ -366,37 +424,124 @@
       await loadFeatureLayer(type, 5, 60);
       await loadForecastRows(type, 60, 96);
     }
-    function quantiles(values, count) {
+    function formatLegendValue(value) {
+      return formatValue(value, state.metric, state.mode === "change");
+    }
+    function labelsForThresholds(thresholds) {
+      return thresholds.map((threshold, index) => {
+        if (index === 0) return `<= ${formatLegendValue(threshold)}`;
+        return `${formatLegendValue(thresholds[index - 1])} to ${formatLegendValue(threshold)}`;
+      }).concat(`> ${formatLegendValue(thresholds[thresholds.length - 1])}`);
+    }
+    function quantileThresholds(values, classCount) {
       const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
       if (!sorted.length) return [];
-      return Array.from({ length: count - 1 }, (_, i) => sorted[Math.floor((sorted.length - 1) * (i + 1) / count)]);
+      return Array.from({ length: classCount - 1 }, (_, i) => {
+        const rank = Math.ceil(sorted.length * (i + 1) / classCount) - 1;
+        return sorted[Math.max(0, Math.min(sorted.length - 1, rank))];
+      });
+    }
+    function quantileBins(values, colors) {
+      const thresholds = quantileThresholds(values, colors.length);
+      return { thresholds, labels: labelsForThresholds(thresholds), colors };
+    }
+    function forecastBins(values) {
+      return quantileBins(values, mapColors);
+    }
+    function hexToRgb(hex) {
+      const value = hex.replace("#", "");
+      return [
+        parseInt(value.slice(0, 2), 16),
+        parseInt(value.slice(2, 4), 16),
+        parseInt(value.slice(4, 6), 16)
+      ];
+    }
+    function rgbToHex(rgb) {
+      return `#${rgb.map(value => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+    }
+    function interpolateColor(startHex, endHex, position) {
+      const start = hexToRgb(startHex);
+      const end = hexToRgb(endHex);
+      return rgbToHex(start.map((value, index) => value + (end[index] - value) * position));
+    }
+    function colorRamp(startHex, endHex, count) {
+      if (count <= 0) return [];
+      if (count === 1) return [endHex];
+      return Array.from({ length: count }, (_, index) => interpolateColor(startHex, endHex, index / (count - 1)));
+    }
+    function changeColorsForThresholds(thresholds, values) {
+      const finite = values.filter(Number.isFinite);
+      if (!finite.length) return [zeroColor];
+      const min = Math.min(...finite);
+      const max = Math.max(...finite);
+      const bins = thresholds.length + 1;
+      const zeroishIndex = Array.from({ length: bins }, (_, index) => {
+        const lower = index === 0 ? min : thresholds[index - 1];
+        const upper = index === thresholds.length ? max : thresholds[index];
+        const distance = lower <= 0 && upper >= 0
+          ? 0
+          : Math.min(Math.abs(lower), Math.abs(upper), Math.abs((lower + upper) / 2));
+        return { index, distance };
+      }).sort((a, b) => a.distance - b.distance || a.index - b.index)[0].index;
+      const colors = Array(bins).fill(zeroColor);
+      const greens = colorRamp("#00441b", "#bae4b3", zeroishIndex);
+      const reds = colorRamp(zeroColor, "#a50f15", bins - zeroishIndex - 1);
+      greens.forEach((color, index) => { colors[index] = color; });
+      reds.forEach((color, index) => { colors[zeroishIndex + 1 + index] = color; });
+      return colors;
+    }
+    function changeBins(values) {
+      const thresholds = quantileThresholds(values, 12);
+      return { thresholds, labels: labelsForThresholds(thresholds), colors: changeColorsForThresholds(thresholds, values) };
+    }
+    function layerBins(values) {
+      return state.mode === "change" ? changeBins(values) : forecastBins(values);
     }
     function colorScale(value, breaks) {
-      if (value === 0) return zeroColor;
-      const colors = mapColors;
+      if (!Number.isFinite(value)) return noDataColor;
+      const colors = breaks.colors || mapColors;
+      const thresholds = breaks.thresholds || [];
       let idx = 0;
-      while (idx < breaks.length && value > breaks[idx]) idx++;
+      while (idx < thresholds.length && value > thresholds[idx]) idx++;
       return colors[idx] || colors[colors.length - 1];
     }
     function layerValues() {
       return (state.features[state.geography]?.features || []).map(feature => dataValue(state.geography, featureId(feature)));
     }
     function refreshLegend(values) {
-      const colors = mapColors;
+      const breaks = state.breaks;
+      const colors = breaks.colors || mapColors;
       const legend = document.getElementById("legend");
       legend.innerHTML = "";
-      colors.forEach(color => {
-        const span = document.createElement("span");
-        span.style.background = color;
-        legend.appendChild(span);
-      });
       const finite = values.filter(Number.isFinite);
-      if (!finite.length) return;
-      document.getElementById("legendMin").textContent = state.mode === "forecast" ? "zero" : formatValue(Math.min(...finite));
-      document.getElementById("legendMax").textContent = `>${formatValue(Math.max(...finite))}`;
+      if (!finite.length) {
+        const item = document.createElement("div");
+        item.className = "legend-item";
+        const swatch = document.createElement("span");
+        swatch.className = "legend-swatch";
+        swatch.style.background = noDataColor;
+        const label = document.createElement("span");
+        label.className = "legend-label";
+        label.textContent = "No valid values";
+        item.append(swatch, label);
+        legend.appendChild(item);
+        return;
+      }
+      colors.forEach((color, i) => {
+        const item = document.createElement("div");
+        item.className = "legend-item";
+        const swatch = document.createElement("span");
+        swatch.className = "legend-swatch";
+        swatch.style.background = color;
+        const label = document.createElement("span");
+        label.className = "legend-label";
+        label.textContent = breaks.labels[i];
+        item.append(swatch, label);
+        legend.appendChild(item);
+      });
       document.getElementById("legendTitle").textContent = state.mode === "forecast"
         ? `${metricLabel()} by ${geographyLabels[state.geography]} in ${state.year}`
-        : `Change in ${metricLabel()} by ${geographyLabels[state.geography]} from ${state.fromYear} to ${state.toYear}`;
+        : `${metricLabel()} by ${geographyLabels[state.geography]} from ${state.fromYear} to ${state.toYear}`;
     }
     function activeStyle(feature) {
       const value = dataValue(state.geography, featureId(feature));
@@ -413,7 +558,7 @@
       const features = state.features[state.geography];
       if (!features) return;
       const values = layerValues();
-      state.breaks = quantiles(values, 7);
+      state.breaks = layerBins(values);
       state.activeLayer = L.geoJSON(features, {
         style: activeStyle,
         onEachFeature: (feature, layer) => {
@@ -427,7 +572,7 @@
     function refreshMap() {
       if (!state.activeLayer) return;
       const values = layerValues();
-      state.breaks = quantiles(values, 7);
+      state.breaks = layerBins(values);
       state.activeLayer.setStyle(activeStyle);
       refreshLegend(values);
     }
@@ -444,12 +589,136 @@
     function trendRows() {
       return (state.rowsByGeo.get(state.selectedKey) || []).filter(row => state.trendYears.includes(Number(row.year)));
     }
+    function trendChartData() {
+      const rows = trendRows();
+      const labels = rows.map(row => row.year);
+      const datasets = tableMetrics.map((metric, i) => ({
+        label: baseMetricLabel(metric),
+        data: rows.map(row => adjustedValue(row.geography_type, row.geography_id, metric, row.year)),
+        borderColor: chartColors[i],
+        backgroundColor: chartColors[i],
+        hidden: !state.visibleMetrics.has(metric),
+        pointRadius: 2,
+        borderWidth: metric === state.metric ? 3 : 1.5,
+        tension: 0.15
+      }));
+      return { labels, datasets };
+    }
+    function trendChartOptions() {
+      return {
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+      };
+    }
+    function chartWindowTitle() {
+      return state.selectedName ? `${state.selectedName} Trends` : "Trend Chart";
+    }
+    function clampChartWindow() {
+      const chartWindow = document.getElementById("chartWindow");
+      if (chartWindow.hidden) return;
+      const rect = chartWindow.getBoundingClientRect();
+      const width = Math.min(rect.width, window.innerWidth - 16);
+      const height = Math.min(rect.height, window.innerHeight - 16);
+      const left = Math.min(Math.max(rect.left, 8), Math.max(8, window.innerWidth - width - 8));
+      const top = Math.min(Math.max(rect.top, 8), Math.max(8, window.innerHeight - height - 8));
+      chartWindow.style.width = `${width}px`;
+      chartWindow.style.height = `${height}px`;
+      chartWindow.style.left = `${left}px`;
+      chartWindow.style.top = `${top}px`;
+    }
+    function refreshExpandedChart() {
+      const chartWindow = document.getElementById("chartWindow");
+      if (!state.expandedChart || chartWindow.hidden) return;
+      state.expandedChart.data = trendChartData();
+      state.expandedChart.options = trendChartOptions();
+      document.getElementById("chartWindowTitle").textContent = chartWindowTitle();
+      state.expandedChart.update();
+      state.expandedChart.resize();
+    }
+    function openChartWindow() {
+      const chartWindow = document.getElementById("chartWindow");
+      const mapRect = document.getElementById("map").getBoundingClientRect();
+      const width = Math.max(360, Math.min(mapRect.width * 0.7, window.innerWidth - 16));
+      const height = Math.max(260, Math.min(mapRect.height * 0.7, window.innerHeight - 16));
+      chartWindow.hidden = false;
+      chartWindow.style.width = `${width}px`;
+      chartWindow.style.height = `${height}px`;
+      chartWindow.style.left = `${Math.min(Math.max(mapRect.left + (mapRect.width - width) / 2, 8), window.innerWidth - width - 8)}px`;
+      chartWindow.style.top = `${Math.min(Math.max(mapRect.top + (mapRect.height - height) / 2, 8), window.innerHeight - height - 8)}px`;
+      document.getElementById("chartWindowTitle").textContent = chartWindowTitle();
+      if (state.expandedChart) state.expandedChart.destroy();
+      state.expandedChart = new Chart(document.getElementById("expandedTrendChart"), {
+        type: "line",
+        data: trendChartData(),
+        options: trendChartOptions()
+      });
+      state.expandedChart.resize();
+      document.getElementById("chartWindowClose").focus();
+    }
+    function closeChartWindow() {
+      const chartWindow = document.getElementById("chartWindow");
+      chartWindow.hidden = true;
+      if (state.expandedChart) {
+        state.expandedChart.destroy();
+        state.expandedChart = null;
+      }
+      document.getElementById("expandChart").focus();
+    }
+    function setupChartWindow() {
+      const chartWindow = document.getElementById("chartWindow");
+      const titlebar = document.getElementById("chartWindowTitlebar");
+      let startX = 0;
+      let startY = 0;
+      let startLeft = 0;
+      let startTop = 0;
+      function beginDrag(event) {
+        if (event.target.closest("button")) return;
+        startX = event.clientX;
+        startY = event.clientY;
+        startLeft = chartWindow.offsetLeft;
+        startTop = chartWindow.offsetTop;
+        titlebar.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }
+      function drag(event) {
+        if (!titlebar.hasPointerCapture(event.pointerId)) return;
+        const width = chartWindow.offsetWidth;
+        const height = chartWindow.offsetHeight;
+        const left = Math.min(Math.max(startLeft + event.clientX - startX, 8), Math.max(8, window.innerWidth - width - 8));
+        const top = Math.min(Math.max(startTop + event.clientY - startY, 8), Math.max(8, window.innerHeight - height - 8));
+        chartWindow.style.left = `${left}px`;
+        chartWindow.style.top = `${top}px`;
+      }
+      function endDrag(event) {
+        if (titlebar.hasPointerCapture(event.pointerId)) titlebar.releasePointerCapture(event.pointerId);
+        clampChartWindow();
+      }
+      document.getElementById("expandChart").addEventListener("click", openChartWindow);
+      document.getElementById("chartWindowClose").addEventListener("click", closeChartWindow);
+      titlebar.addEventListener("pointerdown", beginDrag);
+      titlebar.addEventListener("pointermove", drag);
+      titlebar.addEventListener("pointerup", endDrag);
+      titlebar.addEventListener("pointercancel", endDrag);
+      window.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !chartWindow.hidden) closeChartWindow();
+      });
+      window.addEventListener("resize", () => {
+        clampChartWindow();
+        refreshExpandedChart();
+      });
+      new ResizeObserver(() => {
+        clampChartWindow();
+        if (state.expandedChart) state.expandedChart.resize();
+      }).observe(chartWindow);
+    }
     function refreshTable() {
       const head = document.getElementById("trendHead");
       const body = document.getElementById("trendBody");
       head.innerHTML = "";
       body.innerHTML = "";
-      ["Year", ...tableMetrics.map(metricLabel)].forEach(label => {
+      ["Year", ...tableMetrics.map(baseMetricLabel)].forEach(label => {
         const th = document.createElement("th");
         th.textContent = label;
         head.appendChild(th);
@@ -462,36 +731,21 @@
         tr.appendChild(yearCell);
         tableMetrics.forEach(metric => {
           const td = document.createElement("td");
-          td.textContent = formatValue(adjustedValue(row.geography_type, row.geography_id, metric, row.year), metric);
+          td.textContent = formatValue(adjustedValue(row.geography_type, row.geography_id, metric, row.year), metric, false);
           tr.appendChild(td);
         });
         body.appendChild(tr);
       });
     }
     function refreshChart() {
-      const rows = trendRows();
-      const labels = rows.map(row => row.year);
-      const datasets = tableMetrics.map((metric, i) => ({
-        label: metricLabel(metric),
-        data: rows.map(row => adjustedValue(row.geography_type, row.geography_id, metric, row.year)),
-        borderColor: chartColors[i],
-        backgroundColor: chartColors[i],
-        hidden: !state.visibleMetrics.has(metric),
-        pointRadius: 2,
-        borderWidth: metric === state.metric ? 3 : 1.5,
-        tension: 0.15
-      }));
+      const chartData = trendChartData();
       if (state.chart) state.chart.destroy();
       state.chart = new Chart(document.getElementById("trendChart"), {
         type: "line",
-        data: { labels, datasets },
-        options: {
-          maintainAspectRatio: false,
-          animation: false,
-          plugins: { legend: { display: false } },
-          scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
-        }
+        data: chartData,
+        options: trendChartOptions()
       });
+      refreshExpandedChart();
       const series = document.getElementById("seriesList");
       series.innerHTML = "";
       tableMetrics.forEach((metric, i) => {
@@ -508,7 +762,7 @@
         swatch.className = "swatch";
         swatch.style.background = chartColors[i];
         const text = document.createElement("span");
-        text.textContent = metricLabel(metric);
+        text.textContent = baseMetricLabel(metric);
         label.append(input, swatch, text);
         series.appendChild(label);
       });
@@ -520,6 +774,8 @@
       document.querySelector(".forecast-controls").hidden = true;
       document.querySelector(".change-controls").hidden = mode !== "change";
       document.getElementById("modeLabel").textContent = mode === "forecast" ? "Forecast" : "Change";
+      document.getElementById("pointsLabel").textContent = mode === "forecast" ? "5-year points" : `${state.fromYear} to ${state.toYear}`;
+      if (state.selectedName) document.getElementById("selectedTitle").textContent = `${state.selectedName} Trends`;
       refreshMap();
       refreshTable();
       refreshChart();
@@ -594,6 +850,14 @@
           refreshChart();
         });
       });
+      document.querySelectorAll("input[name='changeMode']").forEach(input => {
+        input.addEventListener("change", event => {
+          state.changeMode = event.target.value;
+          refreshMap();
+          refreshTable();
+          refreshChart();
+        });
+      });
       document.getElementById("yearSelect").addEventListener("change", event => {
         state.year = Number(event.target.value);
         refreshMap();
@@ -601,11 +865,17 @@
       });
       document.getElementById("fromYearSelect").addEventListener("change", event => {
         state.fromYear = Number(event.target.value);
+        document.getElementById("pointsLabel").textContent = state.mode === "forecast" ? "5-year points" : `${state.fromYear} to ${state.toYear}`;
         refreshMap();
+        refreshTable();
+        refreshChart();
       });
       document.getElementById("toYearSelect").addEventListener("change", event => {
         state.toYear = Number(event.target.value);
+        document.getElementById("pointsLabel").textContent = state.mode === "forecast" ? "5-year points" : `${state.fromYear} to ${state.toYear}`;
         refreshMap();
+        refreshTable();
+        refreshChart();
       });
       document.getElementById("yearBack").addEventListener("click", () => stepYear(-1));
       document.getElementById("yearForward").addEventListener("click", () => stepYear(1));
@@ -620,6 +890,7 @@
       });
       document.getElementById("countyToggle").addEventListener("change", event => refreshOverlay("county", event.target.checked));
       document.getElementById("cityToggle").addEventListener("change", event => refreshOverlay("city", event.target.checked));
+      setupChartWindow();
     }
     async function init() {
       setStatus("Loading metadata", 0);
